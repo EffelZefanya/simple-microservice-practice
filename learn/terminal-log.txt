@@ -1,0 +1,21 @@
+# SETTING UP GO
+# Web Framework
+go get -u github.com/gin-gonic/gin
+
+# Database Drivers
+go get go.mongodb.org/mongo-driver/mongo
+go get github.com/go-redis/redis/v8
+
+# Messaging & gRPC
+go get github.com/rabbitmq/amqp091-go
+go get google.golang.org/grpc
+
+# Docker Compose usage
+docker-compose down
+docker-compose up -d
+
+# Protoc Creation
+protoc --go_out=. --go-grpc_out=. api/proto/inventory.proto
+
+# Curl
+curl -X POST http://localhost:8080/orders -H "Content-Type: application/json" -d '{"product_id": "laptop", "customer_id": "user1", "quantity": 1}'
