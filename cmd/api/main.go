@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"gopher-express/internal/order"
 	"gopher-express/internal/platform"
@@ -20,12 +19,13 @@ type OrderRequest struct {
 }
 
 func main() {
+	// 1. Initialize Repository
 	repo, err := order.NewRepository("mongodb://localhost:27017")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	rabbit, _ := platform.NewRabbitMQ("amqp://guest:guest@localhost:5672/")
+	// 2. Initialize RabbitMQ (Fixed redeclaration)
 	rabbit, err := platform.NewRabbitMQ("amqp://guest:guest@localhost:5672/")
 	if err != nil {
 		log.Fatal(err)
@@ -35,6 +35,7 @@ func main() {
 
 	r := gin.Default()
 
+	// --- CREATE ORDER ---
 	r.POST("/orders", func(c *gin.Context) {
 		var req OrderRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -48,7 +49,6 @@ func main() {
 			return
 		}
 
-		
 		newOrder := order.Order{
 			CustomerID: req.CustomerID,
 			ProductID:  req.ProductID,
@@ -63,18 +63,14 @@ func main() {
 			return
 		}
 
+		// 3. Publish Event (Cleaned up duplicates)
 		event := events.OrderCreatedEvent{
-    OrderID:    id,
-    CustomerID: req.CustomerID,
-    ProductID:  req.ProductID,
-    Quantity:   req.Quantity,
-}
-_ = rabbit.PublishOrder(context.Background(), event)
 			OrderID:    id,
 			CustomerID: req.CustomerID,
 			ProductID:  req.ProductID,
 			Quantity:   req.Quantity,
 		}
+
 		if err := rabbit.PublishOrder(c.Request.Context(), event); err != nil {
 			log.Printf("Failed to publish event for order %s: %v", id, err)
 		}
@@ -85,25 +81,18 @@ _ = rabbit.PublishOrder(context.Background(), event)
 		})
 	})
 
+	// --- GET ORDER ---
 	r.GET("/orders/:id", func(c *gin.Context) {
-    id := c.Param("id")
-    ctx := context.Background()
 		id := c.Param("id")
 		ctx := c.Request.Context()
 
-    cachedOrder, err := cache.GetOrder(ctx, id)
-    if err == nil {
-        fmt.Println("🚀 Cache Hit!")
-        c.JSON(http.StatusOK, cachedOrder)
-        return
-    }
+		cachedOrder, err := cache.GetOrder(ctx, id)
+		if err == nil {
+			fmt.Println("🚀 Cache Hit!")
+			c.JSON(http.StatusOK, cachedOrder)
+			return
+		}
 
-    fmt.Println("🐌 Cache Miss! Fetching from DB...")
-    dbOrder, err := repo.FindByID(ctx, id)
-    if err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
-        return
-    }
 		log.Println("🐌 Cache Miss! Fetching from DB...")
 		dbOrder, err := repo.FindByID(ctx, id)
 		if err != nil {
@@ -111,34 +100,26 @@ _ = rabbit.PublishOrder(context.Background(), event)
 			return
 		}
 
-    _ = cache.SetOrder(ctx, *dbOrder)
 		_ = cache.SetOrder(ctx, *dbOrder)
-
-    c.JSON(http.StatusOK, dbOrder)
-})
 		c.JSON(http.StatusOK, dbOrder)
 	})
 
-r.DELETE("/orders/:id", func(c *gin.Context) {
-    id := c.Param("id")
-    ctx := context.Background()
+	// --- DELETE ORDER ---
 	r.DELETE("/orders/:id", func(c *gin.Context) {
 		id := c.Param("id")
 		ctx := c.Request.Context()
 
-    err := repo.DeleteOrder(ctx, id)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete from DB"})
-        return
-    }
+		err := repo.DeleteOrder(ctx, id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete from DB"})
+			return
+		}
 
-	err = cache.DeleteOrder(ctx, id)
-	if err != nil {
-		log.Printf("⚠️ Warning: Failed to evict cache for %s\n", id)
-	}
+		err = cache.DeleteOrder(ctx, id)
+		if err != nil {
+			log.Printf("⚠️ Warning: Failed to evict cache for %s\n", id)
+		}
 
-    c.JSON(http.StatusOK, gin.H{"message": "Order deleted and cache cleared"})
-})
 		c.JSON(http.StatusOK, gin.H{"message": "Order deleted and cache cleared"})
 	})
 
