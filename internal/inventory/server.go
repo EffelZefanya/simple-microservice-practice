@@ -2,14 +2,13 @@ package inventory
 
 import (
 	"context"
-	"gopher-express/api/proto/inventory" // Update this path to match your module name
+	"gopher-express/api/proto/inventory"
 )
 
 type Server struct {
 	inventory.UnimplementedInventoryServiceServer
 }
 
-// CheckStock implements the logic defined in your .proto file
 func (s *Server) CheckStock(ctx context.Context, req *inventory.StockRequest) (*inventory.StockResponse, error) {
 	// For now, let's hardcode a logic: 
 	// If ProductID is "laptop", we have 10. Otherwise, 0.
