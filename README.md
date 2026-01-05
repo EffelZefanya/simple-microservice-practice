@@ -32,7 +32,3 @@ A high-performance microservices-style backend built in Go. This project demonst
 4. **Run Inventory:** `go run cmd/inventory/main.go`
 5. **Run Worker:** `go run cmd/worker/main.go`
 6. **Run API:** `go run cmd/api/main.go`
-
-## 📈 Performance
-- **Database Query:** ~8ms
-- **Redis Cache Hit:** ~2ms (~75% faster)

@@ -19,13 +19,11 @@ type OrderRequest struct {
 }
 
 func main() {
-	// 1. Initialize Repository
 	repo, err := order.NewRepository("mongodb://localhost:27017")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// 2. Initialize RabbitMQ (Fixed redeclaration)
 	rabbit, err := platform.NewRabbitMQ("amqp://guest:guest@localhost:5672/")
 	if err != nil {
 		log.Fatal(err)
@@ -35,7 +33,6 @@ func main() {
 
 	r := gin.Default()
 
-	// --- CREATE ORDER ---
 	r.POST("/orders", func(c *gin.Context) {
 		var req OrderRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -63,7 +60,6 @@ func main() {
 			return
 		}
 
-		// 3. Publish Event (Cleaned up duplicates)
 		event := events.OrderCreatedEvent{
 			OrderID:    id,
 			CustomerID: req.CustomerID,
@@ -81,7 +77,6 @@ func main() {
 		})
 	})
 
-	// --- GET ORDER ---
 	r.GET("/orders/:id", func(c *gin.Context) {
 		id := c.Param("id")
 		ctx := c.Request.Context()
@@ -104,7 +99,6 @@ func main() {
 		c.JSON(http.StatusOK, dbOrder)
 	})
 
-	// --- DELETE ORDER ---
 	r.DELETE("/orders/:id", func(c *gin.Context) {
 		id := c.Param("id")
 		ctx := c.Request.Context()
